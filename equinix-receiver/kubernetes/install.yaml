@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: equinix-receiver-cfg-cm
+data:
+  config.yaml: |
+    equinix:
+      organizationId: <equinix organization id>
+      packetAuthToken: <equinix metal authentication token>
+
+    direktiv:
+      endpoint: https://<<direktiv-url>>/api/namespaces/<<namespace>>/broadcast
+      insecureSkipVerify: true
+      token: <<direktiv-token>>
+      event-on-error: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: equinix-receiver
+  labels:
+    app: equinix-receiver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: equinix-receiver
+  template:
+    metadata:
+      annotations:
+        linkerd.io/inject: disabled
+      labels:
+        app: equinix-receiver
+    spec:
+      volumes:
+      - name: equinixconf
+        configMap:
+          name: equinix-receiver-cfg-cm
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532        
+        runAsGroup: 65532
+      containers:
+        - name: equinix-receiver
+          image: wwonigkeit/equinix-receiver:1.0
+          imagePullPolicy: Always
+          # ports:
+          #   - containerPort: 2525
+          volumeMounts:
+          - name: equinixconf
+            mountPath: "/config"
+            readOnly: false

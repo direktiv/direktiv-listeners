@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: smtp-receiver-cfg-cm
+data:
+  config.yaml: |
+    smtp:
+      address: 0.0.0.0:2525
+    direktiv:
+      endpoint: http://direktiv-api.default:8080/api/namespaces/test/broadcast
+      insecureSkipVerify: true
+      token: <<direktiv-token>>
+      # apikey: apikey
+    event-on-error: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smtp-listener
+  labels:
+    app: smtp-listener
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: smtp-listener
+  template:
+    metadata:
+      annotations:
+        linkerd.io/inject: disabled
+      labels:
+        app: smtp-listener
+    spec:
+      volumes:
+      - name: smtpconf
+        configMap:
+          name: smtp-receiver-cfg-cm
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532        
+        runAsGroup: 65532
+      containers:
+        - name: smtp-listener
+          image: direktiv/smtp-listener:v0.1
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 2525
+          volumeMounts:
+          - name: smtpconf
+            mountPath: "/config"
+            readOnly: false
+---
+apiVersion: v1 
+kind: Service
+metadata:
+  name: smtp-listener-service
+spec:
+  selector:
+    app: smtp-listener
+  ports:
+    - port: 2525
