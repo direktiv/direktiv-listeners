@@ -29,7 +29,17 @@ type Config struct {
 	} `yaml:"direktiv"`
 }
 
+type Extension struct {
+	OrganizationName string
+	OrganizationId   string
+	ProjectName      string
+	ProjectId        string
+	Hostname         string
+	// IPAddress        string
+}
+
 var gcConfig Config
+var eventExt Extension
 
 func main() {
 
@@ -39,65 +49,135 @@ func main() {
 
 	readConfig(os.Args[1])
 
+	// Create a new client connection to the Equinix Metal API
 	client, err := packngo.NewClient(packngo.WithAuth("packngo lib", gcConfig.Equinix.PacketAuthToken))
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	// Get the details of the organization
+	orgOpts := &packngo.GetOptions{}
+
+	orgInfo, response, err := client.Organizations.Get(gcConfig.Equinix.OrganizationID, orgOpts)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_ = response.Body.Close()
+
 	log.Printf("Equinix Organization ID: < %s >", gcConfig.Equinix.OrganizationID)
 
+	eventExt.OrganizationName = orgInfo.Name
+	eventExt.OrganizationId = orgInfo.ID
+	eventExt.Hostname = ""
+
+	// Create a map which we'll use to track which events have been seen by the listener
 	m := make(map[string]bool)
 
+	// Record the time at which the first query is made to ensure we only send "new" events later
 	timeNow := time.Now()
 
 	for {
 
+		// Get the events for the organization
 		listOpts := &packngo.ListOptions{}
 
-		events, response, err := client.Organizations.ListEvents(gcConfig.Equinix.OrganizationID, listOpts)
+		projectList, response, err := client.Projects.List(listOpts)
 		if err != nil {
 			log.Fatal(err)
 		}
 		_ = response.Body.Close()
 
-		for _, event := range events {
+		for _, project := range projectList {
+			// log.Printf("Project: %s / %s ", project.ID, project.Name)
 
-			if _, seen := m[event.ID]; !seen {
+			eventExt.ProjectName = project.Name
+			eventExt.ProjectId = project.ID
 
-				log.Printf("Event: %s / %s / %s", event.ID, event.Type, event.Interpolated)
+			projEvents, response, err := client.Projects.ListEvents(project.ID, listOpts)
+			if err != nil {
+				log.Fatal(err)
+			}
+			_ = response.Body.Close()
 
-				ce := cloudevents.NewEvent()
-				id := uuid.New()
-				ce.SetID(id.String())
-				//ce.SetID(event.ID)
-				ce.SetSource("direktiv/listener/equinix")
-				ce.SetType(event.Type)
-				ce.SetData(event)
+			// Send the first batch of events (Orgnization level events)
+			m, err = createCloudEvent(projEvents, m, timeNow, eventExt)
+			if err != nil {
+				log.Fatal(err)
+			}
+			_ = response.Body.Close()
 
-				data, err := ce.MarshalJSON()
+			// Get the list of devices for the specific project
+			deviceList, response, err := client.Devices.List(project.ID, listOpts)
+			if err != nil {
+				log.Fatal(err)
+			}
+			_ = response.Body.Close()
+
+			for _, device := range deviceList {
+
+				// Get the list of event for the specific devices
+				deviceEvents, response, err := client.Devices.ListEvents(device.ID, listOpts)
 				if err != nil {
 					log.Fatal(err)
 				}
-				fmt.Printf("%s", data)
+				_ = response.Body.Close()
 
-				eventTime := event.CreatedAt
+				eventExt.Hostname = device.Hostname
 
-				if eventTime.After(timeNow) {
-					err = sendCloudEvent(ce)
-					if err != nil {
-						log.Fatal(err)
-					}
+				// Send the second batch of events (device level events)
+				m, err = createCloudEvent(deviceEvents, m, timeNow, eventExt)
+				if err != nil {
+					log.Fatal(err)
 				}
-				m[event.ID] = true
-
 			}
-
 		}
 
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
 
 	}
 
+}
+
+func createCloudEvent(eventList []packngo.Event, mapEvents map[string]bool, lastTime time.Time, extension Extension) (map[string]bool, error) {
+
+	for _, event := range eventList {
+
+		if _, seen := mapEvents[event.ID]; !seen {
+
+			log.Printf("Event: %s / %s / %s", event.ID, event.Type, event.Interpolated)
+
+			ce := cloudevents.NewEvent()
+			id := uuid.New()
+			ce.SetID(id.String())
+			ce.SetSource("direktiv/listener/equinix/" + extension.OrganizationName + "/" + extension.ProjectName)
+			ce.SetType(event.Type)
+			ce.SetData(event)
+			ce.SetExtension("orgname", extension.OrganizationName)
+			ce.SetExtension("orgid", extension.OrganizationId)
+			ce.SetExtension("projname", extension.ProjectName)
+			ce.SetExtension("projid", extension.ProjectId)
+			ce.SetExtension("hostname", extension.Hostname)
+
+			data, err := ce.MarshalJSON()
+			if err != nil {
+				log.Fatal(err)
+				return mapEvents, err
+			}
+			fmt.Printf("%s,", data)
+
+			eventTime := event.CreatedAt
+
+			if eventTime.After(lastTime) {
+				err = sendCloudEvent(ce)
+				if err != nil {
+					log.Fatal(err)
+					return mapEvents, err
+				}
+			}
+			mapEvents[event.ID] = true
+		}
+	}
+	return mapEvents, nil
 }
 
 func sendCloudEvent(event cloudevents.Event) error {
