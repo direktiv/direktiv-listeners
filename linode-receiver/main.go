@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -69,7 +70,7 @@ func main() {
 
 			if _, seen := m[strconv.Itoa(event.ID)]; !seen {
 
-				log.Printf("Event: %s / %s / %s", event.Action, event.Created, strconv.Itoa(event.ID))
+				// log.Printf("Event: %s / %s / %s", event.Action, event.Created, strconv.Itoa(event.ID))
 
 				ce := cloudevents.NewEvent()
 				id := uuid.New()
@@ -80,13 +81,12 @@ func main() {
 				ce.SetTime(*event.Created)
 				ce.SetData(event)
 
-				/*
-					data, err := ce.MarshalJSON()
-					if err != nil {
-						log.Fatal(err)
-					}
-					fmt.Printf("%s", data)
-				*/
+				data, err := ce.MarshalJSON()
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				fmt.Printf("%s,\n", data)
 
 				eventTime := event.Created
 
