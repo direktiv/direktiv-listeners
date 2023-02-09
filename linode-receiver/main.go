@@ -61,9 +61,9 @@ func main() {
 		listOpts := &linodego.ListOptions{}
 
 		events, err := linodeClient.ListEvents(context.Background(), listOpts)
-
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("Failed to get events list: %v", err)
+			continue
 		}
 
 		for _, event := range events {
@@ -79,11 +79,16 @@ func main() {
 				ce.SetSource("direktiv/listener/linode")
 				ce.SetType(string(event.Action))
 				ce.SetTime(*event.Created)
-				ce.SetData(event)
+				err = ce.SetData(event)
+				if err != nil {
+					log.Printf("Failed to set cloudevent data: %v", err)
+					continue
+				}
 
 				data, err := ce.MarshalJSON()
 				if err != nil {
-					log.Fatal(err)
+					log.Printf("Failed to marshal cloudevent: %v", err)
+					continue
 				}
 
 				fmt.Printf("%s,\n", data)
@@ -93,7 +98,8 @@ func main() {
 				if eventTime.After(timeNow) {
 					err = sendCloudEvent(ce)
 					if err != nil {
-						log.Fatal(err)
+						log.Printf("Failed to send cloudevent: %v", err)
+						continue
 					}
 				}
 
