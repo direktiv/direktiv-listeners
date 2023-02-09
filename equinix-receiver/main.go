@@ -83,7 +83,8 @@ func main() {
 
 		projectList, response, err := client.Projects.List(listOpts)
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("Failed to get projects list: %v", err)
+			continue
 		}
 		_ = response.Body.Close()
 
@@ -95,21 +96,24 @@ func main() {
 
 			projEvents, response, err := client.Projects.ListEvents(project.ID, listOpts)
 			if err != nil {
-				log.Fatal(err)
+				log.Printf("Failed to get events list: %v", err)
+				continue
 			}
 			_ = response.Body.Close()
 
 			// Send the first batch of events (Orgnization level events)
 			m, err = createCloudEvent(projEvents, m, timeNow, eventExt)
 			if err != nil {
-				log.Fatal(err)
+				log.Printf("Failed to construct cloudevent: %v", err)
+				continue
 			}
 			_ = response.Body.Close()
 
 			// Get the list of devices for the specific project
 			deviceList, response, err := client.Devices.List(project.ID, listOpts)
 			if err != nil {
-				log.Fatal(err)
+				log.Printf("Failed to get devices list: %v", err)
+				continue
 			}
 			_ = response.Body.Close()
 
@@ -118,7 +122,8 @@ func main() {
 				// Get the list of event for the specific devices
 				deviceEvents, response, err := client.Devices.ListEvents(device.ID, listOpts)
 				if err != nil {
-					log.Fatal(err)
+					log.Printf("Failed to get device events list: %v", err)
+					continue
 				}
 				_ = response.Body.Close()
 
@@ -127,7 +132,8 @@ func main() {
 				// Send the second batch of events (device level events)
 				m, err = createCloudEvent(deviceEvents, m, timeNow, eventExt)
 				if err != nil {
-					log.Fatal(err)
+					log.Printf("Failed to construct cloudevent: %v", err)
+					continue
 				}
 			}
 		}
@@ -151,7 +157,11 @@ func createCloudEvent(eventList []packngo.Event, mapEvents map[string]bool, last
 			ce.SetID(id.String())
 			ce.SetSource("direktiv/listener/equinix/" + extension.OrganizationName + "/" + extension.ProjectName)
 			ce.SetType(event.Type)
-			ce.SetData(event)
+			err := ce.SetData(event)
+			if err != nil {
+				log.Printf("Event data error: %s / %s / %s", event.ID, event.Type, err.Error())
+				continue
+			}
 			ce.SetExtension("orgname", extension.OrganizationName)
 			ce.SetExtension("orgid", extension.OrganizationId)
 			ce.SetExtension("projname", extension.ProjectName)
@@ -160,8 +170,8 @@ func createCloudEvent(eventList []packngo.Event, mapEvents map[string]bool, last
 
 			data, err := ce.MarshalJSON()
 			if err != nil {
-				log.Fatal(err)
-				return mapEvents, err
+				log.Printf("JSON marshal error: %v", err)
+				continue
 			}
 			fmt.Printf("%s,", data)
 
@@ -170,8 +180,8 @@ func createCloudEvent(eventList []packngo.Event, mapEvents map[string]bool, last
 			if eventTime.After(lastTime) {
 				err = sendCloudEvent(ce)
 				if err != nil {
-					log.Fatal(err)
-					return mapEvents, err
+					log.Printf("failed to send cloudevent: %v", err)
+					continue
 				}
 			}
 			mapEvents[event.ID] = true
