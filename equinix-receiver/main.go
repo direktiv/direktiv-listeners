@@ -70,6 +70,7 @@ func main() {
 	eventExt.OrganizationName = orgInfo.Name
 	eventExt.OrganizationId = orgInfo.ID
 	eventExt.Hostname = ""
+	eventExt.DeviceID = ""
 
 	// Create a map which we'll use to track which events have been seen by the listener
 	m := make(map[string]bool)
