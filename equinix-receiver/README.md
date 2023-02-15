@@ -4,7 +4,7 @@ The Equinix Event Listener is a poller which creates CloudEvents internally to D
 
 It uses the Golang Equinix SDK [packngo](https://github.com/packethost/packngo) and calls the https://api.equinix.com/metal/v1/organizations/{id}/events endpoint. 
 
-The endpoint retrieves Organization level events (see https://deploy.equinix.com/developers/api/metal/#tag/Events/operation/findOrganizationEvents)
+The endpoint retrieves , Project & Device level events (see https://deploy.equinix.com/developers/api/metal/#tag/Events/operation/findOrganizationEvents)
 
 ## Install
 

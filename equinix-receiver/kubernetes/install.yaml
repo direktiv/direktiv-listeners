@@ -42,7 +42,7 @@ spec:
         runAsGroup: 65532
       containers:
         - name: equinix-receiver
-          image: wwonigkeit/equinix-receiver:1.0
+          image: wwonigkeit/equinix-listener:1.0
           imagePullPolicy: Always
           # ports:
           #   - containerPort: 2525

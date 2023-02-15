@@ -35,6 +35,7 @@ type Extension struct {
 	ProjectName      string
 	ProjectId        string
 	Hostname         string
+	DeviceID         string
 	// IPAddress        string
 }
 
@@ -127,6 +128,7 @@ func main() {
 				}
 				_ = response.Body.Close()
 
+				eventExt.DeviceID = device.ID
 				eventExt.Hostname = device.Hostname
 
 				// Send the second batch of events (device level events)
@@ -167,6 +169,7 @@ func createCloudEvent(eventList []packngo.Event, mapEvents map[string]bool, last
 			ce.SetExtension("projname", extension.ProjectName)
 			ce.SetExtension("projid", extension.ProjectId)
 			ce.SetExtension("hostname", extension.Hostname)
+			ce.SetExtension("deviceid", extension.DeviceID)
 
 			data, err := ce.MarshalJSON()
 			if err != nil {
