@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -76,7 +75,8 @@ func main() {
 	m := make(map[string]bool)
 
 	// Record the time at which the first query is made to ensure we only send "new" events later
-	timeNow := time.Now()
+	timeNow := time.Now().Add(-time.Second * 10)
+	currentTime := &packngo.ListOptions{QueryParams: map[string]string{"since": timeNow.Format(time.RFC3339)}}
 
 	for {
 
@@ -96,7 +96,7 @@ func main() {
 			eventExt.ProjectName = project.Name
 			eventExt.ProjectId = project.ID
 
-			projEvents, response, err := client.Projects.ListEvents(project.ID, listOpts)
+			projEvents, response, err := client.Projects.ListEvents(project.ID, currentTime)
 			if err != nil {
 				log.Printf("Failed to get events list: %v", err)
 				continue
@@ -104,7 +104,7 @@ func main() {
 			_ = response.Body.Close()
 
 			// Send the first batch of events (Orgnization level events)
-			m, err = createCloudEvent(projEvents, m, timeNow, eventExt)
+			m, err = createCloudEvent(projEvents, m, eventExt)
 			if err != nil {
 				log.Printf("Failed to construct cloudevent: %v", err)
 				continue
@@ -122,7 +122,7 @@ func main() {
 			for _, device := range deviceList {
 
 				// Get the list of event for the specific devices
-				deviceEvents, response, err := client.Devices.ListEvents(device.ID, listOpts)
+				deviceEvents, response, err := client.Devices.ListEvents(device.ID, currentTime)
 				if err != nil {
 					log.Printf("Failed to get device events list: %v", err)
 					continue
@@ -133,7 +133,7 @@ func main() {
 				eventExt.Hostname = device.Hostname
 
 				// Send the second batch of events (device level events)
-				m, err = createCloudEvent(deviceEvents, m, timeNow, eventExt)
+				m, err = createCloudEvent(deviceEvents, m, eventExt)
 				if err != nil {
 					log.Printf("Failed to construct cloudevent: %v", err)
 					continue
@@ -141,13 +141,13 @@ func main() {
 			}
 		}
 
-		time.Sleep(10 * time.Second)
+		time.Sleep(5 * time.Second)
 
 	}
 
 }
 
-func createCloudEvent(eventList []packngo.Event, mapEvents map[string]bool, lastTime time.Time, extension Extension) (map[string]bool, error) {
+func createCloudEvent(eventList []packngo.Event, mapEvents map[string]bool, extension Extension) (map[string]bool, error) {
 
 	for _, event := range eventList {
 
@@ -177,17 +177,14 @@ func createCloudEvent(eventList []packngo.Event, mapEvents map[string]bool, last
 				log.Printf("JSON marshal error: %v", err)
 				continue
 			}
-			fmt.Printf("%s,", data)
+			log.Printf("Event data: %s,", data)
 
-			eventTime := event.CreatedAt
-
-			if eventTime.After(lastTime) {
-				err = sendCloudEvent(ce)
-				if err != nil {
-					log.Printf("failed to send cloudevent: %v", err)
-					continue
-				}
+			err = sendCloudEvent(ce)
+			if err != nil {
+				log.Printf("failed to send cloudevent: %v", err)
+				continue
 			}
+
 			mapEvents[event.ID] = true
 		}
 	}
