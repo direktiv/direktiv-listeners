@@ -74,11 +74,11 @@ func main() {
 	// Create a map which we'll use to track which events have been seen by the listener
 	m := make(map[string]bool)
 
-	// Record the time at which the first query is made to ensure we only send "new" events later
-	timeNow := time.Now().Add(-time.Second * 10)
-	currentTime := &packngo.ListOptions{QueryParams: map[string]string{"since": timeNow.Format(time.RFC3339)}}
-
 	for {
+
+		// Record the time at which the first query is made to ensure we only send "new" events later
+		timeNow := time.Now().Add(-time.Second * 10)
+		currentTime := &packngo.ListOptions{QueryParams: map[string]string{"since": timeNow.Format(time.RFC3339)}}
 
 		// Get the events for the organization
 		listOpts := &packngo.ListOptions{}
