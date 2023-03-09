@@ -12,6 +12,24 @@ data:
       insecureSkipVerify: true
       token: "<token>"
       event-on-error: true
+  direktiv.io.crt: |
+    linode:
+      linodeAuthToken: <linode-token>
+
+    direktiv:
+      endpoint: http://<direktiv-url>/api/namespaces/<namespace>/broadcast
+      insecureSkipVerify: true
+      token: "<token>"
+      event-on-error: true
+  direktiv.io.crt: |
+    linode:
+      linodeAuthToken: <linode-token>
+
+    direktiv:
+      endpoint: http://<direktiv-url>/api/namespaces/<namespace>/broadcast
+      insecureSkipVerify: true
+      token: "<token>"
+      event-on-error: true
 ---
 apiVersion: apps/v1
 kind: Deployment

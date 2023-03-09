@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -82,9 +83,12 @@ func main() {
 			return
 		}
 
+		project := m["project"].(map[string]interface{})
+		source := fmt.Sprint(project["web_url"])
+
 		ce.SetID(id.String())
-		ce.SetSource("direktiv/listener/gitlab")
 		ce.SetType(req.Header.Get("X-Gitlab-Event"))
+		ce.SetSource(source)
 		ce.SetTime(time.Now())
 		ce.SetDataContentType("application/json")
 		err = ce.SetData(m)
