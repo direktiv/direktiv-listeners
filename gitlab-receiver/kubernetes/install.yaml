@@ -57,7 +57,19 @@ spec:
         - name: gitlab-receiver
           image: wwonigkeit/gitlab-receiver:1.0
           imagePullPolicy: Always
+          ports:
+          - containerPort: 8080
           volumeMounts:
           - name: gitlabconf
             mountPath: "/config"
             readOnly: false
+---
+apiVersion: v1 
+kind: Service
+metadata:
+  name: gitlab-receiver-service
+spec:
+  selector:
+    app: gitlab-receiver
+  ports:
+    - port: 8080
