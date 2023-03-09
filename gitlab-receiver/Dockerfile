@@ -11,12 +11,5 @@ FROM scratch
 COPY --from=build /gitlab-receiver /
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
-#########################################################
-# This needs to be removed when deploying to Kubernetes
-COPY direktiv.io* /
-COPY config.yaml /
-CMD ["/gitlab-receiver", "/config.yaml"]
-########################################################
-
-# CMD ["/gitlab-receiver", "/config/config.yaml"]
+CMD ["/gitlab-receiver", "/config/config.yaml"]
 
