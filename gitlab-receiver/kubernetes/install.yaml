@@ -1,67 +1,63 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: linode-receiver-cfg-cm
+  name: gitlab-receiver-cfg-cm
 data:
   config.yaml: |
-    linode:
-      linodeAuthToken: <linode-token>
+    server:
+      bind: ":8080"
+      tls: true
+      certFile: "/config/cert.crt"
+      keyFile: "/config/cert.key"
+
+    gitlab:
+      token: "<gitlab-webhook-token>"
 
     direktiv:
       endpoint: http://<direktiv-url>/api/namespaces/<namespace>/broadcast
       insecureSkipVerify: true
       token: "<token>"
       event-on-error: true
-  direktiv.io.crt: |
-    linode:
-      linodeAuthToken: <linode-token>
-
-    direktiv:
-      endpoint: http://<direktiv-url>/api/namespaces/<namespace>/broadcast
-      insecureSkipVerify: true
-      token: "<token>"
-      event-on-error: true
-  direktiv.io.crt: |
-    linode:
-      linodeAuthToken: <linode-token>
-
-    direktiv:
-      endpoint: http://<direktiv-url>/api/namespaces/<namespace>/broadcast
-      insecureSkipVerify: true
-      token: "<token>"
-      event-on-error: true
+  cert.crt: |
+    -----BEGIN CERTIFICATE-----
+    .........
+    -----END CERTIFICATE-----
+  cert.key: |
+    -----BEGIN CERTIFICATE-----
+    .........
+    -----END CERTIFICATE-----
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: linode-receiver
+  name: gitlab-receiver
   labels:
-    app: linode-receiver
+    app: gitlab-receiver
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: linode-receiver
+      app: gitlab-receiver
   template:
     metadata:
       annotations:
         linkerd.io/inject: disabled
       labels:
-        app: linode-receiver
+        app: gitlab-receiver
     spec:
       volumes:
-      - name: linodeconf
+      - name: gitlabconf
         configMap:
-          name: linode-receiver-cfg-cm
+          name: gitlab-receiver-cfg-cm
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532        
         runAsGroup: 65532
       containers:
-        - name: linode-receiver
-          image: wwonigkeit/linode-receiver:1.0
+        - name: gitlab-receiver
+          image: wwonigkeit/gitlab-receiver:1.0
           imagePullPolicy: Always
           volumeMounts:
-          - name: linodeconf
+          - name: gitlabconf
             mountPath: "/config"
             readOnly: false
