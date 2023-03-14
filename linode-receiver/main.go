@@ -48,19 +48,26 @@ func main() {
 	}
 
 	linodeClient := linodego.NewClient(oauth2Client)
-	//linodeClient.SetDebug(true)
+	// linodeClient.SetDebug(true)
 
 	m := make(map[string]bool)
 
-	timeNow := time.Now()
-	// Below just for testing
-	// timeNow = timeNow.AddDate(0, 0, -1)
-
 	for {
 
-		listOpts := &linodego.ListOptions{}
+		timeNow := time.Now().Add(-time.Second * 10).UTC()
+
+		f := linodego.Filter{}
+		f.AddField(linodego.Gte, "created", timeNow.Format("2006-01-02T15:04:05"))
+		fStr, err := f.MarshalJSON()
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		listOpts := linodego.NewListOptions(0, string(fStr))
 
 		events, err := linodeClient.ListEvents(context.Background(), listOpts)
+
 		if err != nil {
 			log.Printf("Failed to get events list: %v", err)
 			continue
@@ -70,7 +77,7 @@ func main() {
 
 			if _, seen := m[strconv.Itoa(event.ID)]; !seen {
 
-				// log.Printf("Event: %s / %s / %s", event.Action, event.Created, strconv.Itoa(event.ID))
+				//log.Printf("Event: %s / %s / %s", event.Action, event.Created, strconv.Itoa(event.ID))
 
 				ce := cloudevents.NewEvent()
 				id := uuid.New()
@@ -109,7 +116,7 @@ func main() {
 
 		}
 
-		time.Sleep(5 * time.Second)
+		time.Sleep(2 * time.Second)
 
 	}
 
